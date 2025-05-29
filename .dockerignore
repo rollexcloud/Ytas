@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.venv/
+ENV/
+env/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Local instance / testing files
+*.db
+.coverage
+.pytest_cache/
+
+# Docker files (if they are not needed inside the image itself)
+# Dockerfile
+# .dockerignore
+
+# README (often not needed in the final image)
+README.md

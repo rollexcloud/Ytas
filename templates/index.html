@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video Downloader</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>YouTube Video Downloader</h1>
+        </header>
+        <main>
+            <form id="downloadForm" method="POST" action="/download">
+                <input type="url" id="videoUrl" name="url" placeholder="Enter YouTube Video URL" required>
+                <button type="submit" id="downloadButton">Download</button>
+            </form>
+            <div id="messageArea">
+                <!-- Messages will be displayed here -->
+            </div>
+            <div id="loadingIndicator" style="display: none;">
+                <p>Downloading, please wait... This may take a few moments.</p>
+                <div class="loader"></div>
+            </div>
+        </main>
+        <footer>
+            <p>Powered by yt-dlp & Flask</p>
+        </footer>
+    </div>
+
+    <script>
+        document.getElementById('downloadForm').addEventListener('submit', function(event) {
+            const downloadButton = document.getElementById('downloadButton');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const messageArea = document.getElementById('messageArea');
+            
+            messageArea.textContent = ''; // Clear previous messages
+            downloadButton.disabled = true;
+            downloadButton.textContent = 'Processing...';
+            loadingIndicator.style.display = 'block';
+
+            // The form will submit normally, and the browser will handle the download.
+            // We need a way to know if the download started successfully or if there was an error server-side.
+            // Standard form submission for file downloads doesn't make it easy to get a response status back into JS
+            // without using AJAX (which complicates file downloads).
+            // For now, we'll re-enable the button after a timeout, or the user can just try again if it fails.
+            // A more robust solution might involve AJAX to initiate, then polling or a websocket for status,
+            // or setting a cookie on the server response that JS can check.
+
+            // Simple timeout to re-enable the button, assuming download will start or fail.
+            setTimeout(() => {
+                downloadButton.disabled = false;
+                downloadButton.textContent = 'Download';
+                loadingIndicator.style.display = 'none';
+                // We can't reliably know if an error occurred from a direct form submission for file download.
+                // The server will return an error page if something goes wrong.
+            }, 30000); // Re-enable after 30 seconds, adjust as needed
+        });
+    </script>
+</body>
+</html>
