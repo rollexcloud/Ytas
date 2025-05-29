@@ -96,13 +96,31 @@ def download_video():
 
     except yt_dlp.utils.DownloadError as e:
         app.logger.error(f"yt-dlp DownloadError: {e}")
-        # Try to extract a more user-friendly message if possible
-        error_message = str(e)
-        if "Unsupported URL" in error_message:
-            return "Error: Unsupported URL. Please provide a valid video URL.", 500
-        elif "Video unavailable" in error_message:
-            return "Error: Video unavailable.", 500
-        return f"Error processing video: {e}", 500
+        error_text = str(e).lower() # Convert to lowercase for easier matching
+        user_friendly_message = "An error occurred while trying to process the video."
+
+        if "unsupported url" in error_text:
+            user_friendly_message = "Error: The provided URL is not supported or is not a valid video URL."
+        elif "video unavailable" in error_text or \
+             "content isn’t available" in error_text or \
+             "isn't available anymore" in error_text or \
+             "private video" in error_text or \
+             "video is private" in error_text:
+            user_friendly_message = "Error: This video is unavailable. It might be private, deleted, or restricted in your region."
+        elif "age restricted" in error_text or "age-restricted" in error_text:
+             user_friendly_message = "Error: This video is age-restricted and cannot be downloaded without authentication, which this service does not support."
+        elif "copyright" in error_text:
+            user_friendly_message = "Error: This video cannot be downloaded due to copyright restrictions."
+        else:
+            # Try to extract a cleaner message from yt-dlp's output
+            # yt-dlp errors often start with "ERROR: "
+            if error_text.startswith("error: "):
+                extracted_error = str(e)[len("ERROR: "):].strip()
+                user_friendly_message = f"Error: {extracted_error}"
+            else:
+                 user_friendly_message = f"Error processing video. Please try a different URL or check the video's availability."
+
+        return user_friendly_message, 500
     except Exception as e:
         app.logger.error(f"General Error: {e}")
         return f"An unexpected error occurred: {e}", 500
