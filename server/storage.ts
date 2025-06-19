@@ -54,8 +54,15 @@ export class MemStorage implements IStorage {
   async createDownload(insertDownload: InsertDownload): Promise<Download> {
     const id = this.currentDownloadId++;
     const download: Download = { 
-      ...insertDownload, 
       id,
+      videoId: insertDownload.videoId,
+      title: insertDownload.title,
+      thumbnail: insertDownload.thumbnail,
+      duration: insertDownload.duration,
+      channel: insertDownload.channel,
+      views: insertDownload.views ?? null,
+      description: insertDownload.description ?? null,
+      formats: insertDownload.formats,
       createdAt: new Date()
     };
     this.downloads.set(id, download);

@@ -2,7 +2,15 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { youtubeUrlSchema, insertDownloadSchema } from "@shared/schema";
-import ytdl from "ytdl-core";
+import ytdl from "@distube/ytdl-core";
+
+interface VideoFormat {
+  quality: string;
+  container: string;
+  filesize?: string;
+  itag: number;
+  type: 'video' | 'audio';
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Analyze YouTube video
@@ -36,30 +44,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const videoDetails = info.videoDetails;
       
       // Extract available formats
-      const videoFormats = info.formats
-        .filter(format => format.hasVideo && format.hasAudio)
-        .map(format => ({
+      const videoFormats: VideoFormat[] = info.formats
+        .filter((format: any) => format.hasVideo && format.hasAudio)
+        .map((format: any) => ({
           quality: format.qualityLabel || format.quality,
           container: format.container,
           filesize: format.contentLength,
           itag: format.itag,
-          type: 'video'
+          type: 'video' as const
         }))
-        .filter((format, index, self) => 
-          index === self.findIndex(f => f.quality === format.quality)
+        .filter((format: VideoFormat, index: number, self: VideoFormat[]) => 
+          index === self.findIndex((f: VideoFormat) => f.quality === format.quality)
         );
 
-      const audioFormats = info.formats
-        .filter(format => format.hasAudio && !format.hasVideo)
-        .map(format => ({
+      const audioFormats: VideoFormat[] = info.formats
+        .filter((format: any) => format.hasAudio && !format.hasVideo)
+        .map((format: any) => ({
           quality: format.audioBitrate ? `${format.audioBitrate}kbps` : 'Standard',
           container: 'mp3',
           filesize: format.contentLength,
           itag: format.itag,
-          type: 'audio'
+          type: 'audio' as const
         }))
-        .filter((format, index, self) => 
-          index === self.findIndex(f => f.quality === format.quality)
+        .filter((format: VideoFormat, index: number, self: VideoFormat[]) => 
+          index === self.findIndex((f: VideoFormat) => f.quality === format.quality)
         )
         .slice(0, 2); // Limit to 2 audio qualities
 
@@ -143,7 +151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       stream.pipe(res);
 
-      stream.on('error', (error) => {
+      stream.on('error', (error: any) => {
         console.error("Stream error:", error);
         if (!res.headersSent) {
           res.status(500).json({ error: "Download failed" });
