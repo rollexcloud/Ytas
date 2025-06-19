@@ -1,6 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { serveStatic } from "./production";
+import path from "path";
 
 // Simple logging function
 function log(message: string, source = "express") {
@@ -60,8 +60,18 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Serve static files in production
-  serveStatic(app);
+  // Serve static files in production - must come after API routes
+  const publicPath = path.join(process.cwd(), "dist/public");
+  app.use(express.static(publicPath));
+  
+  // Catch-all handler for SPA routing - serve index.html for non-API routes
+  app.get("*", (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith("/api") || req.path.startsWith("/health")) {
+      return res.status(404).json({ error: "Not found" });
+    }
+    res.sendFile(path.join(publicPath, "index.html"));
+  });
 
   const PORT = parseInt(process.env.PORT || "5000", 10);
   server.listen(PORT, "0.0.0.0", () => {

@@ -14,9 +14,9 @@ export function log(message: string, source = "express") {
 
 // Static file serving for production
 export function serveStatic(app: express.Express) {
-  const clientPath = path.join(process.cwd(), "dist/client");
-  app.use(express.static(clientPath));
+  const publicPath = path.join(process.cwd(), "dist/public");
+  app.use(express.static(publicPath));
   app.get("*", (req, res) => {
-    res.sendFile("index.html", { root: clientPath });
+    res.sendFile("index.html", { root: publicPath });
   });
 }
