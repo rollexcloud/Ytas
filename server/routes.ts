@@ -44,8 +44,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Get video info
-      const info = await ytdl.getInfo(url);
+      // Get video info with retry logic for rate limiting
+      let info: any;
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          info = await ytdl.getInfo(url);
+          break;
+        } catch (error: any) {
+          if (error?.statusCode === 429 && retryCount < maxRetries) {
+            retryCount++;
+            // Wait with exponential backoff: 2s, 4s
+            await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+            continue;
+          }
+          throw error;
+        }
+      }
+      
+      if (!info) {
+        throw new Error('Failed to retrieve video information after retries');
+      }
       const videoDetails = info.videoDetails;
       
       // Extract available formats
@@ -117,9 +138,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         formats: allFormats,
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error analyzing video:", error);
-      res.status(500).json({ error: "Failed to analyze video" });
+      
+      // Handle specific YouTube API errors
+      if (error.statusCode === 429) {
+        return res.status(429).json({ 
+          error: "YouTube is temporarily limiting requests. Please wait a moment and try again." 
+        });
+      } else if (error.statusCode === 403) {
+        return res.status(403).json({ 
+          error: "Access to this video is restricted. It may be private or unavailable in your region." 
+        });
+      } else if (error.statusCode === 404) {
+        return res.status(404).json({ 
+          error: "Video not found. Please check the URL and try again." 
+        });
+      }
+      
+      res.status(500).json({ 
+        error: "Unable to analyze video. Please check the URL and try again." 
+      });
     }
   });
 
