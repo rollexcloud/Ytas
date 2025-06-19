@@ -119,3 +119,4 @@ Changelog:
 - June 19, 2025. Initial setup
 - June 19, 2025. Updated to @distube/ytdl-core library for better YouTube compatibility, fixed TypeScript errors, resolved CSS import issues. Application now successfully analyzes YouTube videos and provides download functionality for MP4 video and MP3 audio formats. Ready for deployment.
 - June 19, 2025. Added Docker support for Render.com deployment with complete configuration files, health check endpoint, and deployment documentation.
+- June 19, 2025. Fixed Docker production build issues by creating dedicated production entry point (server/production-entry.ts) that eliminates dynamic Vite imports. Implemented multi-stage Docker build with separate client and server bundling. Docker deployment now works correctly on Render.com without module resolution errors.

@@ -19,8 +19,11 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Build the client
+RUN vite build
+
+# Build the production server
+RUN esbuild server/production-entry.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/server.js
 
 # Production stage
 FROM node:20-alpine AS production
@@ -41,14 +44,11 @@ RUN npm ci --only=production
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 
-# Copy server source files that might be needed at runtime
-COPY server/production.ts ./server/production.ts
-
 # Expose port
 EXPOSE 5000
 
 # Set environment to production
 ENV NODE_ENV=production
 
-# Start the application
-CMD ["npm", "start"]
+# Start the production server
+CMD ["node", "dist/server.js"]
