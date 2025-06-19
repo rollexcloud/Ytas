@@ -47,7 +47,18 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  // Setup development or production mode first
+  let server;
+  if (process.env.NODE_ENV === "development") {
+    // Dynamic import for development only
+    const { setupVite } = await import("./vite");
+    server = await registerRoutes(app);
+    await setupVite(app, server);
+  } else {
+    const { serveStatic } = await import("./production");
+    server = await registerRoutes(app);
+    serveStatic(app);
+  }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -56,16 +67,6 @@ app.use((req, res, next) => {
     res.status(status).json({ message });
     throw err;
   });
-
-  // Setup development or production mode
-  if (process.env.NODE_ENV === "development") {
-    // Dynamic import for development only
-    const { setupVite } = await import("./vite");
-    await setupVite(app, server);
-  } else {
-    const { serveStatic } = await import("./production");
-    serveStatic(app);
-  }
 
   // Use PORT environment variable for cloud deployment, fallback to 5000 for local development
   const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;

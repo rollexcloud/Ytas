@@ -14,7 +14,7 @@ interface VideoFormat {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint for Render.com
-  app.get("/", (req, res) => {
+  app.get("/health", (req, res) => {
     res.json({ status: "ok", message: "YouTube Downloader API is running" });
   });
 

@@ -20,10 +20,10 @@ RUN npm ci
 COPY . .
 
 # Build the client
-RUN vite build
+RUN npx vite build
 
 # Build the production server
-RUN esbuild server/production-entry.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/server.js
+RUN npx esbuild server/production-entry.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/server.js
 
 # Production stage
 FROM node:20-alpine AS production
