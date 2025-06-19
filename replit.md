@@ -99,8 +99,23 @@ This is a modern full-stack YouTube video downloader application built with Reac
 
 Preferred communication style: Simple, everyday language.
 
+## Deployment Options
+
+### Replit Deployment
+- Configured for Replit's autoscale deployment
+- Auto-scaling with Node.js 20, Web, and PostgreSQL 16 modules
+- Automated build and start processes
+
+### Render.com Deployment
+- Docker configuration added with Dockerfile and .dockerignore
+- render.yaml blueprint for automatic deployment
+- Health check endpoint at root path
+- PORT environment variable support for cloud deployment
+- Complete deployment documentation in README.md
+
 ## Changelog
 
 Changelog:
 - June 19, 2025. Initial setup
 - June 19, 2025. Updated to @distube/ytdl-core library for better YouTube compatibility, fixed TypeScript errors, resolved CSS import issues. Application now successfully analyzes YouTube videos and provides download functionality for MP4 video and MP3 audio formats. Ready for deployment.
+- June 19, 2025. Added Docker support for Render.com deployment with complete configuration files, health check endpoint, and deployment documentation.
