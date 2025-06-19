@@ -103,3 +103,4 @@ Preferred communication style: Simple, everyday language.
 
 Changelog:
 - June 19, 2025. Initial setup
+- June 19, 2025. Updated to @distube/ytdl-core library for better YouTube compatibility, fixed TypeScript errors, resolved CSS import issues. Application now successfully analyzes YouTube videos and provides download functionality for MP4 video and MP3 audio formats. Ready for deployment.
