@@ -47,7 +47,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get video info with retry logic for rate limiting
       let info: any;
       let retryCount = 0;
-      const maxRetries = 2;
+      const maxRetries = 3;
       
       while (retryCount <= maxRetries) {
         try {
@@ -56,7 +56,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (error: any) {
           if (error?.statusCode === 429 && retryCount < maxRetries) {
             retryCount++;
-            // Wait with exponential backoff: 2s, 4s
+            // Wait with exponential backoff: 2s, 4s, 8s
             await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
             continue;
           }
