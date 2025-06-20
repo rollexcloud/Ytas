@@ -1,5 +1,3 @@
-// @ts-ignore
-import fetch from 'node-fetch';
 
 // Fetches a list of free HTTP proxies from a public API
 export async function fetchFreeProxies(): Promise<string[]> {
