@@ -29,13 +29,17 @@ function delay(ms: number) {
 export async function fetchWithPuppeteer(url: string) {
   const proxy = await getNextProxy();
   const launchOpts: any = { headless: true };
+  // Always include hardened flags
+  const baseArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
+
   if (proxy) {
     console.log(`[puppeteer] Using proxy: ${proxy}`);
-    launchOpts.args = [`--proxy-server=${proxy}`];
+    launchOpts.args = [...baseArgs, `--proxy-server=${proxy}`];
   } else {
     console.log('[puppeteer] No proxy available, launching without proxy');
+    launchOpts.args = baseArgs;
   }
-    const browser = await puppeteer.launch(launchOpts);
+  const browser = await puppeteer.launch(launchOpts);
   try {
     const page = await browser.newPage();
     await page.setUserAgent(randomUserAgent());
