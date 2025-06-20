@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer-extra';
+import { browsers } from 'puppeteer';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { getNextProxy } from './proxyPool';
 
@@ -23,6 +24,15 @@ function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function ensureChromium(): Promise<void> {
+  try {
+    await browsers.resolveExecutablePath('chrome');
+  } catch {
+    console.log('[puppeteer] Chromium missing – downloading now…');
+    await browsers.install({ browser: 'chrome' });
+  }
+}
+
 export async function fetchWithPuppeteer(url: string) {
   const proxy = await getNextProxy();
   const launchOpts: any = { headless: true };
@@ -32,6 +42,7 @@ export async function fetchWithPuppeteer(url: string) {
   } else {
     console.log('[puppeteer] No proxy available, launching without proxy');
   }
+  await ensureChromium();
   const browser = await puppeteer.launch(launchOpts);
   try {
     const page = await browser.newPage();
