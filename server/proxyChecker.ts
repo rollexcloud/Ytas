@@ -1,5 +1,4 @@
-import fetch from 'node-fetch';
-import ProxyAgent from 'proxy-agent';
+import { ProxyAgent } from 'undici-proxy-agent';
 
 export async function filterWorkingProxies(list: string[], timeout = 8000): Promise<string[]> {
   const checks = list.map(async (proxy) => {
@@ -7,7 +6,7 @@ export async function filterWorkingProxies(list: string[], timeout = 8000): Prom
     const timer = setTimeout(() => controller.abort(), timeout);
     try {
       await fetch('https://www.google.com', {
-        agent: new ProxyAgent(proxy),
+        dispatcher: new ProxyAgent(proxy),
         signal: controller.signal,
         // lightweight HEAD request
         method: 'HEAD',
