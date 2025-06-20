@@ -1,0 +1,23 @@
+version: "3.9"
+services:
+  app:
+    build: .
+    image: ytas-backend:latest
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - REDIS_URL=redis://redis:6379
+      # Uncomment and fill if you have proxies
+      # - PROXY_LIST=http://user:pass@proxy1:port,http://proxy2:port
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+volumes:
+  redis-data:
