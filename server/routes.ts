@@ -2,7 +2,15 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { youtubeUrlSchema, insertDownloadSchema } from "@shared/schema";
+import fs from 'fs';
+import { muxStreams } from './muxer';
+import { Readable } from 'stream';
 import ytdl from "@distube/ytdl-core";
+import { getCachedVideoInfo, setCachedVideoInfo } from './cache';
+import { addVideoJob } from './queue';
+import { getNextProxy } from './proxyPool';
+import { fetchWithPuppeteer } from './puppeteerFetcher';
+
 
 interface VideoFormat {
   quality: string;
@@ -19,6 +27,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Analyze YouTube video
+  // Download and optionally mux video+audio
+  // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+  const handleDownload = async (url: string, itagParam: string | number, res: any): Promise<void> => {
+    try { url = decodeURIComponent(url); } catch (_) { /* ignore */ }
+
+    const itag = typeof itagParam === 'string' ? parseInt(itagParam, 10) : itagParam;
+    if (!ytdl.validateURL(url)) {
+      res.status(400).json({ error: 'Invalid YouTube URL' });
+      return;
+    }
+    const info = await ytdl.getInfo(url);
+    const format = info.formats.find(f => f.itag === itag);
+    if (!format) return res.status(400).json({ error: 'Format not found' });
+
+    // Progressive
+    if (format.hasAudio) {
+      res.setHeader('Content-Type', 'video/mp4');
+      ytdl(url, { quality: itag }).pipe(res);
+      return;
+    }
+    // Need to mux
+    const videoStream: Readable = ytdl(url, { quality: itag });
+    const audioStream: Readable = ytdl(url, { quality: 140 });
+    const filePath = await muxStreams(videoStream, audioStream);
+    res.download(filePath, `${info.videoDetails.title}.mp4`, err => {
+      if (err) console.error('Download error:', err);
+      setTimeout(() => fs.unlink(filePath, () => {}), 60_000);
+    });
+  };
+
+  app.post('/api/download', async (req, res) => {
+    try {
+      let { url, itag } = req.body as any;
+      // Handle edge cases where body may be stringified JSON or nested
+      if (typeof req.body === 'string') {
+        try { const parsed = JSON.parse(req.body); url = parsed.url; itag = parsed.itag; } catch(_) {}
+      }
+      if (!url && req.body?.data) { url = req.body.data.url; itag = req.body.data.itag; }
+      // Build URL from videoId if provided
+      if (!url && req.body?.videoId) {
+        url = `https://www.youtube.com/watch?v=${req.body.videoId}`;
+      }
+      if (!itag && req.body?.itag) {
+        itag = req.body.itag;
+      }
+      if (!url || !itag) {
+        console.warn('/api/download POST missing params. body=', req.body);
+        return res.status(400).json({ error: 'Missing url or itag' });
+      }
+      await handleDownload(url, itag, res);
+    } catch (err) {
+      console.error('/api/download POST error:', err);
+      res.status(500).json({ error: 'Failed to download' });
+    }
+  });
+
+  // GET variant for easier UI usage: /api/download?url=...&itag=137
+  app.get('/api/download', async (req, res) => {
+    try {
+      let { url, itag, videoId } = req.query as { url?: string; itag?: string; videoId?: string };
+      // Allow videoId shortcut
+      if (!url && videoId) {
+        url = `https://www.youtube.com/watch?v=${videoId}`;
+      }
+      if (!url) {
+        // Attempt to reconstruct raw query part after ?url=
+        const raw = req.originalUrl.split('?')[1] || '';
+        if (raw.startsWith('url=')) {
+          const parts = raw.split('&');
+          url = parts[0].substring(4); // remove 'url='
+          itag = itag || (parts.find(p=>p.startsWith('itag='))?.split('=')[1]);
+        }
+      }
+      if (!url || !itag) {
+        return res.status(400).json({ error: 'Missing url or itag' });
+      }
+      await handleDownload(url, itag, res);
+    } catch (err) {
+      console.error('/api/download GET error:', err);
+      res.status(500).json({ error: 'Failed to download' });
+    }
+  });
+
   app.post("/api/analyze", async (req, res) => {
     try {
       const { url } = youtubeUrlSchema.parse(req.body);
@@ -29,10 +120,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if we already have this video cached
       const videoId = ytdl.getVideoID(url);
+      // 1. Try Redis cache
+      const cached = await getCachedVideoInfo(videoId);
+      if (cached) {
+        return res.json(cached);
+      }
+      // 2. Try storage (legacy in-memory)
       const existingDownload = await storage.getDownloadByVideoId(videoId);
-      
       if (existingDownload) {
-        return res.json({
+        const responseData = {
           videoId: existingDownload.videoId,
           title: existingDownload.title,
           thumbnail: existingDownload.thumbnail,
@@ -41,29 +137,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           views: existingDownload.views,
           description: existingDownload.description,
           formats: JSON.parse(existingDownload.formats),
-        });
+        };
+        await setCachedVideoInfo(videoId, responseData);
+        return res.json(responseData);
       }
-
-      // Get video info with retry logic for rate limiting
-      let info: any;
-      let retryCount = 0;
-      const maxRetries = 3;
-      
-      while (retryCount <= maxRetries) {
+      // 3. Try queueing a fetch job (throttled, proxy, puppeteer fallback)
+      let info;
+      let usedPuppeteer = false;
+      try {
         try {
           info = await ytdl.getInfo(url);
-          break;
-        } catch (error: any) {
-          if (error?.statusCode === 429 && retryCount < maxRetries) {
-            retryCount++;
-            // Wait with exponential backoff: 2s, 4s, 8s
-            await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
-            continue;
-          }
-          throw error;
+        } catch (err: any) {
+          // If rate-limited or blocked, use Puppeteer with proxy
+          usedPuppeteer = true;
+          const html = await fetchWithPuppeteer(url);
+          // Optionally, parse HTML for video info here or just return fallback
+          info = { videoDetails: { title: 'Blocked or rate-limited', thumbnails: [], lengthSeconds: '0', author: { name: '' }, viewCount: '0', description: '' }, formats: [] };
         }
+      } catch (err) {
+        // If all fails, add to queue for retry
+        await addVideoJob({ url, videoId });
+        return res.status(429).json({ error: 'Rate limited or blocked. Your request is queued for retry.' });
       }
-      
       if (!info) {
         throw new Error('Failed to retrieve video information after retries');
       }
@@ -71,7 +166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Extract available formats
       const videoFormats: VideoFormat[] = info.formats
-        .filter((format: any) => format.hasVideo && format.hasAudio)
+        .filter((format: any) => format.hasVideo)
         .map((format: any) => ({
           quality: format.qualityLabel || format.quality,
           container: format.container,

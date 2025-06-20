@@ -1,5 +1,9 @@
+import 'dotenv/config';
+console.log('DEBUG: REDIS_URL at startup:', process.env.REDIS_URL);
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { startQueueWorker } from "./queue";
 
 // Simple logging function
 function log(message: string, source = "express") {
@@ -46,6 +50,8 @@ app.use((req, res, next) => {
   next();
 });
 
+startQueueWorker();
+
 (async () => {
   // Setup development or production mode first
   let server;
@@ -70,11 +76,7 @@ app.use((req, res, next) => {
 
   // Use PORT environment variable for cloud deployment, fallback to 5000 for local development
   const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  server.listen(port, "127.0.0.1", () => {
     log(`serving on port ${port}`);
   });
 })();
