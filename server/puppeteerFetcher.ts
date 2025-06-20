@@ -1,4 +1,6 @@
-import puppeteer from 'puppeteer-extra';
+import { addExtra } from 'puppeteer-extra';
+import puppeteerBase from 'puppeteer';
+const puppeteer = addExtra(puppeteerBase);
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { getNextProxy } from './proxyPool';
 
